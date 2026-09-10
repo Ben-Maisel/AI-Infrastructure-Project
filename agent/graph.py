@@ -8,7 +8,7 @@ import sys
 
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
-from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from agent import config

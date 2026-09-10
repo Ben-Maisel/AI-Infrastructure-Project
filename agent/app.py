@@ -35,21 +35,20 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            history_len = len(st.session_state.messages)
-            result = agent.invoke({"messages": st.session_state.messages})
-            new_messages = result["messages"][history_len:]
+    with st.chat_message("assistant"), st.spinner("Thinking..."):
+        history_len = len(st.session_state.messages)
+        result = agent.invoke({"messages": st.session_state.messages})
+        new_messages = result["messages"][history_len:]
 
-            tool_calls = [
-                call["name"]
-                for msg in new_messages
-                for call in (getattr(msg, "tool_calls", None) or [])
-            ]
-            if tool_calls:
-                st.caption(f"\U0001f527 used: {', '.join(tool_calls)}")
+        tool_calls = [
+            call["name"]
+            for msg in new_messages
+            for call in (getattr(msg, "tool_calls", None) or [])
+        ]
+        if tool_calls:
+            st.caption(f"\U0001f527 used: {', '.join(tool_calls)}")
 
-            answer = new_messages[-1].content
-            st.markdown(answer)
+        answer = new_messages[-1].content
+        st.markdown(answer)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
