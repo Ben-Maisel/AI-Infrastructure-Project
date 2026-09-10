@@ -1,0 +1,9 @@
+.git
+.github
+docs/knowledge_base
+docs/vector_store
+agent_output
+tests
+__pycache__
+*.pyc
+.venv
