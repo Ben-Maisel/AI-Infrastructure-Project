@@ -4,7 +4,7 @@ import os
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Chat model: does the reasoning + tool calling
-CHAT_MODEL = os.getenv("AGENT_CHAT_MODEL", "llama3.1:8b")
+CHAT_MODEL = os.getenv("AGENT_CHAT_MODEL", "llama3.2")
 
 # Embedding model: turns text into vectors for retrieval
 EMBEDDING_MODEL = os.getenv("AGENT_EMBEDDING_MODEL", "nomic-embed-text")

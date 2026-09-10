@@ -6,6 +6,8 @@ langchain-ollama
 
 # Vector store for RAG
 chromadb
+langchain-chroma
+langchain-text-splitters
 
 # One-time doc scraping (agent/scrape.py)
 requests
