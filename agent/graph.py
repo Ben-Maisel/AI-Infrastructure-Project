@@ -37,12 +37,26 @@ SYSTEM_PROMPT = (
     "Kubernetes using the search_knowledge_base tool, and can save "
     "results to a file with the write_file tool when asked. Always "
     "search the knowledge base before answering a Kubernetes question "
-    "rather than relying on prior knowledge."
+    "rather than relying on prior knowledge.\n\n"
+    "Tool argument names are exact and case-sensitive:\n"
+    "- search_knowledge_base(query: str)\n"
+    "- write_file(filename: str, content: str)\n"
+    "Never invent different argument names, and never write out a tool "
+    "call as plain text in your reply — always use the actual tool-calling "
+    "mechanism."
 )
 
 
+def _tool_error_message(error: Exception) -> str:
+    return (
+        f"Tool call failed: {error}. write_file takes exactly two string "
+        "arguments named 'filename' and 'content' (no others) — retry the "
+        "call using those exact argument names."
+    )
+
+
 def build_graph():
-    model = ChatOllama(model=config.CHAT_MODEL, base_url=config.OLLAMA_BASE_URL)
+    model = ChatOllama(model=config.CHAT_MODEL, base_url=config.OLLAMA_BASE_URL, temperature=0)
     model_with_tools = model.bind_tools(TOOLS)
 
     def call_model(state: MessagesState):
@@ -52,7 +66,7 @@ def build_graph():
 
     graph = StateGraph(MessagesState)
     graph.add_node("agent", call_model)
-    graph.add_node("tools", ToolNode(TOOLS))
+    graph.add_node("tools", ToolNode(TOOLS, handle_tool_errors=_tool_error_message))
 
     graph.add_edge(START, "agent")
     graph.add_conditional_edges("agent", tools_condition)
