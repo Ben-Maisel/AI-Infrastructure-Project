@@ -43,7 +43,15 @@ def build_vector_store():
     chunks = splitter.split_documents(documents)
 
     if os.path.exists(config.VECTOR_STORE_DIR):
-        shutil.rmtree(config.VECTOR_STORE_DIR)
+        # Clear contents rather than removing the directory itself: when this
+        # path is a Docker bind mount, rmtree-ing the mount point fails with
+        # "device or resource busy".
+        for entry in os.listdir(config.VECTOR_STORE_DIR):
+            entry_path = os.path.join(config.VECTOR_STORE_DIR, entry)
+            if os.path.isdir(entry_path):
+                shutil.rmtree(entry_path)
+            else:
+                os.remove(entry_path)
 
     print(f"Embedding {len(chunks)} chunks from {len(documents)} documents...")
     Chroma.from_documents(
