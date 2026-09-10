@@ -43,7 +43,9 @@ SYSTEM_PROMPT = (
     "- write_file(filename: str, content: str)\n"
     "Never invent different argument names, and never write out a tool "
     "call as plain text in your reply — always use the actual tool-calling "
-    "mechanism."
+    "mechanism.\n\n"
+    "When saving to a file, write a concise summary in your own words — "
+    "never copy retrieved text verbatim into the content argument."
 )
 
 
@@ -56,7 +58,9 @@ def _tool_error_message(error: Exception) -> str:
 
 
 def build_graph():
-    model = ChatOllama(model=config.CHAT_MODEL, base_url=config.OLLAMA_BASE_URL, temperature=0)
+    model = ChatOllama(
+        model=config.CHAT_MODEL, base_url=config.OLLAMA_BASE_URL, temperature=0, num_predict=4096
+    )
     model_with_tools = model.bind_tools(TOOLS)
 
     def call_model(state: MessagesState):
