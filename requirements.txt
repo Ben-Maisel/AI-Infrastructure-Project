@@ -1,1 +1,15 @@
-# Project dependencies go here as they're added (e.g. langgraph, langchain, etc.)
+# Agent framework
+langgraph
+langchain
+langchain-community
+langchain-ollama
+
+# Vector store for RAG
+chromadb
+
+# One-time doc scraping (agent/scrape.py)
+requests
+beautifulsoup4
+
+# Chat UI
+streamlit
