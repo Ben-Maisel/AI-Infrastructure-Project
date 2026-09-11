@@ -1,4 +1,5 @@
 # Network for EKS: 2 AZs, public+private subnets, one shared NAT Gateway.
+# Subnet IDs are consumed later by infra/eks.tf.
 
 locals {
   cluster_name = "ai-infra-project"
