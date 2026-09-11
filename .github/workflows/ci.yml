@@ -20,6 +20,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # TEMPORARY: decode the real OIDC token for this event type to
+      # verify the deploy role's trust policy against ground truth.
+      - name: Debug - show real OIDC token claims
+        run: |
+          python3 << 'EOF'
+          import urllib.request, json, base64, os
+
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com"
+          req = urllib.request.Request(url, headers={"Authorization": f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
+          token = json.loads(urllib.request.urlopen(req).read())["value"]
+
+          payload = token.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload))
+          interesting = {k: v for k, v in claims.items() if k in ("sub", "aud", "ref", "event_name")}
+          print(json.dumps(interesting, indent=2))
+          EOF
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
