@@ -131,6 +131,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # TEMPORARY: decode the real OIDC token for this exact job/event
+      # to verify the deploy role's trust policy against ground truth --
+      # a real merge already failed auth here despite a policy that
+      # looks correct by analogy to the verified pull_request/dev cases.
+      - name: Debug - show real OIDC token claims
+        run: |
+          python3 << 'EOF'
+          import urllib.request, json, base64, os
+
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com"
+          req = urllib.request.Request(url, headers={"Authorization": f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
+          token = json.loads(urllib.request.urlopen(req).read())["value"]
+
+          payload = token.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload))
+          print(json.dumps(claims, indent=2))
+          EOF
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::786830914740:role/ai-infra-project-github-actions-deploy
