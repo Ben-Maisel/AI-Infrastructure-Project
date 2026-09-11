@@ -1,4 +1,5 @@
-# Container registry for the agent image.
+# Container registry for the agent image. Referenced by ecr_repository_url
+# in outputs.tf for docker push / Kubernetes manifests.
 
 resource "aws_ecr_repository" "app" {
   name = "${local.cluster_name}-app"
