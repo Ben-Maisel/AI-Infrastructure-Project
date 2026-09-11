@@ -8,8 +8,7 @@ terraform {
     }
   }
 
-  # Points at the bucket/table created once by infra/bootstrap/.
-  # Backend blocks can't reference variables -- these have to be literal.
+  # Backend blocks can't reference variables -- values must be literal.
   backend "s3" {
     bucket       = "ai-infra-project-tfstate-786830914740"
     key          = "infra/terraform.tfstate"

@@ -5,14 +5,10 @@ on:
     branches: [main, dev]
   push:
     branches: [main, dev]
-  # Lets a human manually trigger this pipeline on demand (e.g. to
-  # spin infra back up for a demo session) without needing a new code
-  # change to merge first.
+  # Manual trigger, e.g. to redeploy without a new commit
   workflow_dispatch:
 
-# id-token: write is required to request an OIDC token from GitHub at
-# all -- without it, neither infra job could authenticate to AWS
-# regardless of what their IAM roles' trust policies allow.
+# Required to request an OIDC token at all
 permissions:
   id-token: write
   contents: read
@@ -50,11 +46,7 @@ jobs:
           echo "PRs into main must come from the dev branch (got '${{ github.head_ref }}')."
           exit 1
 
-  # Whether infra/** changed -- gates the two infra jobs below so they
-  # don't run (and don't need AWS credentials at all) on ordinary app
-  # code changes. Skipped entirely for a manual workflow_dispatch run,
-  # since infra-apply's own condition already bypasses this check for
-  # that trigger type.
+  # Gates the infra jobs so ordinary app commits skip AWS entirely
   detect-infra-changes:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -89,9 +81,7 @@ jobs:
           terraform_version: "1.15.8"
 
       - run: terraform init
-      # -lock=false: the read-only role can't write the S3 state lock
-      # (ReadOnlyAccess has no s3:PutObject/DeleteObject) -- fine for a
-      # preview that never writes state, not fine for apply below.
+      # Read-only role can't write the state lock
       - run: terraform plan -lock=false
 
   infra-apply:
@@ -100,9 +90,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.detect-infra-changes.outputs.infra == 'true')
     needs: [lint-and-test, detect-infra-changes]
     runs-on: ubuntu-latest
-    # Referencing this environment is what makes this job pause for a
-    # manual approval click -- the required-reviewer rule lives in the
-    # repo's environment settings, not in this file.
+    # Pauses for approval -- required-reviewer rule is on the repo's environment settings
     environment: infra-deploy
     defaults:
       run:

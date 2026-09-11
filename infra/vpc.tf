@@ -1,8 +1,4 @@
-# The network EKS lives in. Two AZs (EKS's minimum), one public subnet
-# per AZ (for the internet-facing load balancer) and one private subnet
-# per AZ (for the actual worker nodes/pods). A single NAT Gateway lets
-# the private subnets reach the internet outbound without being
-# reachable from it -- the one resource here with a real hourly cost.
+# Network for EKS: 2 AZs, public+private subnets, one shared NAT Gateway.
 
 locals {
   cluster_name = "ai-infra-project"
@@ -20,13 +16,11 @@ module "vpc" {
   public_subnets  = ["10.0.0.0/20", "10.0.16.0/20"]
   private_subnets = ["10.0.128.0/20", "10.0.144.0/20"]
 
-  # One shared NAT Gateway (not one per AZ) to keep the always-on cost
-  # to a single ~$0.045/hr resource rather than doubling it.
+  # Single shared NAT (not one per AZ) trades AZ resilience for cost.
   enable_nat_gateway = true
   single_nat_gateway = true
 
-  # Auto-discovery tags EKS, the load balancer controller, and Karpenter
-  # all rely on to find the right subnets without being told explicitly.
+  # Tags EKS/Karpenter/the load balancer controller use for auto-discovery.
   public_subnet_tags = {
     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
     "kubernetes.io/role/elb"                      = "1"
@@ -35,6 +29,6 @@ module "vpc" {
   private_subnet_tags = {
     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
     "kubernetes.io/role/internal-elb"              = "1"
-    "karpenter.sh/discovery"                        = local.cluster_name
+    "karpenter.sh/discovery"                       = local.cluster_name
   }
 }

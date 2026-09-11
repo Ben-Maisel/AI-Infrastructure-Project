@@ -1,9 +1,5 @@
-# One-time bootstrap: creates the S3 bucket that the REST of this
-# project's Terraform (in ../) uses as its remote state backend, using
-# native S3 locking (use_lockfile) rather than the older DynamoDB-based
-# locking pattern, which Terraform 1.15+ flags as deprecated. This
-# config's own state stays local -- it can't depend on the remote
-# backend it's creating.
+# One-time bootstrap: creates the S3 bucket that infra/ uses as its
+# remote state backend. This config's own state stays local.
 
 terraform {
   required_version = ">= 1.5"

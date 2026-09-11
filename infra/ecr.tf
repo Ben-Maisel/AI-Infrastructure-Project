@@ -1,15 +1,10 @@
-# Container registry for the agent image. CI will build and push here;
-# the Kubernetes Deployment manifests will reference this repo's URL.
+# Container registry for the agent image.
 
 resource "aws_ecr_repository" "app" {
   name = "${local.cluster_name}-app"
 
-  # Each tag can only ever be pushed once -- forces every build to use a
-  # genuinely unique tag (e.g. the git SHA) instead of silently
-  # overwriting something like "latest", which is better for traceability
-  # and rollback. This is a real constraint on the future CI build/push
-  # stage, not just a Terraform setting -- worth remembering when that
-  # stage gets built.
+  # Immutable tags force a unique tag (e.g. git SHA) per build instead
+  # of silently overwriting "latest".
   image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
