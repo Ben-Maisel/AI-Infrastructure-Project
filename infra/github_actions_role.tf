@@ -9,7 +9,13 @@
 # not just a code change.
 
 locals {
-  github_repo = "Ben-Maisel/AI-Infrastructure-Project"
+  # GitHub's OIDC "sub" claim embeds the owner and repo's numeric IDs
+  # alongside their names (repo:OWNER@OWNER_ID/REPO@REPO_ID:...), not
+  # just "owner/repo" as commonly assumed/documented elsewhere --
+  # confirmed by decoding a real issued token (see github_actions_plan_role.tf's
+  # history) rather than guessed. IDs independently verified via
+  # GET /repos/Ben-Maisel/AI-Infrastructure-Project.
+  github_repo_claim = "Ben-Maisel@146761912/AI-Infrastructure-Project@1363459857"
 }
 
 resource "aws_iam_role" "github_actions_deploy" {
@@ -28,7 +34,7 @@ resource "aws_iam_role" "github_actions_deploy" {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${local.github_repo}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" = "repo:${local.github_repo_claim}:ref:refs/heads/main"
         }
       }
     }]
