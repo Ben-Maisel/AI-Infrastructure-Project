@@ -11,3 +11,16 @@ docs/vector_store/
 agent_output/
 
 .env
+
+# Terraform local artifacts. State lives in S3, not here -- these are
+# just the local working files each `terraform init`/`apply` creates.
+# .terraform.lock.hcl (provider version lock) IS committed, like a
+# package-lock.json -- not excluded here.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Personal working notes -- not part of the public repo
+roadmap.md
+runninglistTODO.txt
