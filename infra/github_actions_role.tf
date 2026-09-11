@@ -1,5 +1,8 @@
 # IAM role GitHub Actions assumes to run Terraform. Trust is scoped to
-# this exact repo and the main branch only.
+# this exact repo and the infra-deploy environment -- jobs that
+# reference an environment get an environment-shaped sub claim
+# (repo:OWNER@ID/REPO@ID:environment:NAME), not the ref-shaped one a
+# plain push produces. Verified against a real token.
 
 locals {
   # GitHub's sub claim embeds numeric owner/repo IDs, not just names:
@@ -23,7 +26,7 @@ resource "aws_iam_role" "github_actions_deploy" {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${local.github_repo_claim}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" = "repo:${local.github_repo_claim}:environment:infra-deploy"
         }
       }
     }]
