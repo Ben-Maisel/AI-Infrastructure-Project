@@ -38,4 +38,21 @@ module "eks" {
   node_security_group_tags = {
     "karpenter.sh/discovery" = local.cluster_name
   }
+
+  # Read-only kubectl access for local debugging/demos -- matches the
+  # same philosophy as the AWS IAM side: personal credentials observe,
+  # CI creates and modifies.
+  access_entries = {
+    ben = {
+      principal_arn = "arn:aws:iam::786830914740:user/Ben"
+      policy_associations = {
+        view = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  }
 }
