@@ -118,9 +118,20 @@ jobs:
             }
 
   infra-apply:
+    # needs: on a job silently requires success() on all of them unless
+    # the if below calls a status function itself. !cancelled() (not
+    # always()) opts out of that so a workflow_dispatch run isn't
+    # skipped just because detect-infra-changes (skipped on purpose for
+    # that event) "didn't succeed" -- always() would also run this after
+    # a user cancels the whole workflow, which we don't want for a job
+    # that applies real infrastructure.
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.detect-infra-changes.outputs.infra == 'true')
+      !cancelled() &&
+      needs.lint-and-test.result == 'success' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.detect-infra-changes.result == 'success' && needs.detect-infra-changes.outputs.infra == 'true')
+      )
     needs: [lint-and-test, detect-infra-changes]
     runs-on: ubuntu-latest
     # Pauses for approval -- required-reviewer rule is on the repo's environment settings
