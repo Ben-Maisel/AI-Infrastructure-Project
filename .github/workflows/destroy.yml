@@ -15,9 +15,6 @@ jobs:
   # never comes into play here.
   destroy-plan:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra
     steps:
       - uses: actions/checkout@v4
 
@@ -30,17 +27,24 @@ jobs:
         with:
           terraform_version: "1.15.8"
 
-      - run: terraform init
-      - run: terraform plan -destroy -refresh=false -lock=false -no-color
+      # cluster-addons/ first -- shown in the order it'll actually be destroyed.
+      - name: Preview destroy of infra/cluster-addons/
+        working-directory: infra/cluster-addons
+        run: |
+          terraform init
+          terraform plan -destroy -refresh=false -lock=false -no-color
+
+      - name: Preview destroy of infra/
+        working-directory: infra
+        run: |
+          terraform init
+          terraform plan -destroy -refresh=false -lock=false -no-color
 
   infra-destroy:
     needs: destroy-plan
     runs-on: ubuntu-latest
     # Same approval gate as infra-apply in ci.yml.
     environment: infra-deploy
-    defaults:
-      run:
-        working-directory: infra
     steps:
       - uses: actions/checkout@v4
 
@@ -53,5 +57,16 @@ jobs:
         with:
           terraform_version: "1.15.8"
 
-      - run: terraform init
-      - run: terraform destroy -auto-approve
+      # cluster-addons/ must go first -- the Helm release's uninstall
+      # needs the cluster's API server to still exist to process it.
+      - name: Destroy infra/cluster-addons/
+        working-directory: infra/cluster-addons
+        run: |
+          terraform init
+          terraform destroy -auto-approve
+
+      - name: Destroy infra/
+        working-directory: infra
+        run: |
+          terraform init
+          terraform destroy -auto-approve
