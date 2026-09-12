@@ -11,6 +11,10 @@ resource "helm_release" "karpenter" {
 
   values = [
     yamlencode({
+      # Default is 2, which needs pod anti-affinity to satisfy (no two
+      # replicas on the same node) -- not worth a permanent second
+      # system-group node just for HA on a demo/portfolio controller.
+      replicas = 1
       settings = {
         clusterName       = module.eks.cluster_name
         interruptionQueue = module.karpenter.queue_name
