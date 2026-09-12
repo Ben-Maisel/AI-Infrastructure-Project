@@ -1,12 +1,19 @@
-"""Build up or tear down the main Terraform-managed AWS infrastructure
-(infra/) for a demo session. Deliberately never touches infra/bootstrap/
--- that holds the remote-state bucket everything else's state lives in,
-and should essentially never be destroyed.
+"""Build up the main Terraform-managed AWS infrastructure (infra/) for a
+demo session, or preview a teardown. Deliberately never touches
+infra/bootstrap/ or infra/trust/ -- those hold the remote-state bucket
+and CI's own identity, neither of which should ever be destroyed.
+
+Actually destroying infra/ now runs through the "Destroy Infra" GitHub
+Actions workflow (workflow_dispatch), not locally -- destroying the
+Kubernetes-backed resources here (Helm release, Karpenter CRDs) needs
+to read their live state first, which needs essentially the same
+privilege as creating them. A personal, intentionally read-only
+identity can't do that; the CI deploy role already can.
 
 Usage:
     python scripts/deploy_infra.py plan   # preview only, no changes made
     python scripts/deploy_infra.py up     # terraform apply, after confirmation
-    python scripts/deploy_infra.py down   # terraform destroy, after confirmation
+    python scripts/deploy_infra.py down   # preview only -- actual destroy is CI-only
 """
 import argparse
 import subprocess
@@ -45,17 +52,21 @@ def up():
         "exist -- the GPU node alone is ~$0.526/hr. Review the plan above."
     )
     run(["terraform", "apply", "-auto-approve"])
-    print("\nUp. Remember: tear down with `python scripts/deploy_infra.py down` when done.")
+    print(
+        "\nUp. Remember: tear down via the \"Destroy Infra\" GitHub Actions "
+        "workflow (workflow_dispatch) when done -- not this script."
+    )
 
 
 def down():
     init()
     run(["terraform", "plan", "-destroy"])
-    confirm(
-        "This DESTROYS everything shown above. Make sure the demo/session "
-        "is actually finished first."
+    print(
+        "\nThat's a preview only -- actually tearing down runs through the "
+        '"Destroy Infra" GitHub Actions workflow now (Actions -> Destroy '
+        "Infra -> Run workflow), not this script. See its own preview job "
+        "there before approving."
     )
-    run(["terraform", "destroy", "-auto-approve"])
     print("\nDown. Nothing in infra/ should be billing anymore.")
 
 
