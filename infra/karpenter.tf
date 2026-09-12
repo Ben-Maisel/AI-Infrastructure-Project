@@ -17,4 +17,9 @@ module "karpenter" {
   enable_pod_identity    = false
   enable_irsa            = true
   irsa_oidc_provider_arn = module.eks.oidc_provider_arn
+
+  # Matches the ServiceAccount the Helm release below actually creates --
+  # the module's own IRSA default is namespace "karpenter", but the
+  # official chart defaults to installing into kube-system.
+  irsa_namespace_service_accounts = ["kube-system:karpenter"]
 }
