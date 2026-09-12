@@ -18,6 +18,13 @@ module "eks" {
   # Karpenter's controller needs this to call the EC2 API.
   enable_irsa = true
 
+  # IAM auth alone doesn't grant Kubernetes RBAC access -- separate
+  # systems. Without this, whoever's identity runs `terraform apply`
+  # (the CI deploy role) can authenticate to the API server but is
+  # authorized to do nothing inside the cluster, which is why the
+  # Helm install failed.
+  enable_cluster_creator_admin_permissions = true
+
   eks_managed_node_groups = {
     system = {
       instance_types = ["t3.medium"]
