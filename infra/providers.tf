@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.0"
+    }
   }
 
   # Backend blocks can't reference variables -- values must be literal.
@@ -25,6 +29,21 @@ provider "aws" {
     tags = {
       Project   = "ai-infra-project"
       ManagedBy = "terraform"
+    }
+  }
+}
+
+# Authenticates to the cluster's API server the same way kubectl does --
+# a short-lived, IAM-signed token fetched at apply-time, not a static credential.
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
     }
   }
 }
