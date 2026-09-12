@@ -8,15 +8,15 @@ resource "kubectl_manifest" "cpu_ec2_node_class" {
     metadata:
       name: cpu
     spec:
-      role: ${module.karpenter.node_iam_role_name}
+      role: ${data.terraform_remote_state.infra.outputs.karpenter_node_iam_role_name}
       amiSelectorTerms:
         - alias: al2023@latest
       subnetSelectorTerms:
         - tags:
-            karpenter.sh/discovery: ${module.eks.cluster_name}
+            karpenter.sh/discovery: ${data.terraform_remote_state.infra.outputs.eks_cluster_name}
       securityGroupSelectorTerms:
         - tags:
-            karpenter.sh/discovery: ${module.eks.cluster_name}
+            karpenter.sh/discovery: ${data.terraform_remote_state.infra.outputs.eks_cluster_name}
       # Reserves a slice of node resources for the OS/kubelet itself so
       # workloads can't starve them out.
       kubelet:
@@ -28,7 +28,7 @@ resource "kubectl_manifest" "cpu_ec2_node_class" {
       tags:
         Project: "ai-infra-project"
         ManagedBy: "karpenter"
-        karpenter.sh/discovery: ${module.eks.cluster_name}
+        karpenter.sh/discovery: ${data.terraform_remote_state.infra.outputs.eks_cluster_name}
   YAML
 
   depends_on = [helm_release.karpenter]

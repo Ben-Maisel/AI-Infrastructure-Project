@@ -15,6 +15,11 @@ output "eks_cluster_endpoint" {
   value = module.eks.cluster_endpoint
 }
 
+output "eks_cluster_ca" {
+  value       = module.eks.cluster_certificate_authority_data
+  description = "Read by infra/cluster-addons/ to configure the helm/kubectl providers"
+}
+
 output "karpenter_iam_role_arn" {
   value       = module.karpenter.iam_role_arn
   description = "Annotated onto the Karpenter controller's ServiceAccount so it can assume this role via IRSA"

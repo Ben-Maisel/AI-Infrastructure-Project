@@ -16,12 +16,12 @@ resource "helm_release" "karpenter" {
       # system-group node just for HA on a demo/portfolio controller.
       replicas = 1
       settings = {
-        clusterName       = module.eks.cluster_name
-        interruptionQueue = module.karpenter.queue_name
+        clusterName       = data.terraform_remote_state.infra.outputs.eks_cluster_name
+        interruptionQueue = data.terraform_remote_state.infra.outputs.karpenter_interruption_queue_name
       }
       serviceAccount = {
         annotations = {
-          "eks.amazonaws.com/role-arn" = module.karpenter.iam_role_arn
+          "eks.amazonaws.com/role-arn" = data.terraform_remote_state.infra.outputs.karpenter_iam_role_arn
         }
       }
     })

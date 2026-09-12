@@ -61,14 +61,13 @@ jobs:
           filters: |
             infra:
               - 'infra/**'
+              - '!infra/trust/**'
+              - '!infra/bootstrap/**'
 
   infra-plan:
     if: github.event_name == 'pull_request' && needs.detect-infra-changes.outputs.infra == 'true'
     needs: detect-infra-changes
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra
     steps:
       - uses: actions/checkout@v4
 
@@ -81,18 +80,31 @@ jobs:
         with:
           terraform_version: "1.15.8"
 
-      - run: terraform init
       # Read-only role can't write the state lock
-      - run: terraform plan -lock=false -no-color | tee plan_output.txt
+      - name: Plan infra/
+        working-directory: infra
+        run: |
+          terraform init
+          terraform plan -lock=false -no-color | tee plan_output.txt
+
+      # -refresh=false: the plan role has no EKS access entry, so it
+      # can't read the Kubernetes-backed resources here live -- this
+      # shows what's in state rather than a fully live-verified diff.
+      - name: Plan infra/cluster-addons/
+        working-directory: infra/cluster-addons
+        run: |
+          terraform init
+          terraform plan -refresh=false -lock=false -no-color | tee plan_output.txt
 
       - name: Comment plan on PR
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const plan = fs.readFileSync('infra/plan_output.txt', 'utf8').slice(-60000);
+            const infraPlan = fs.readFileSync('infra/plan_output.txt', 'utf8').slice(-30000);
+            const addonsPlan = fs.readFileSync('infra/cluster-addons/plan_output.txt', 'utf8').slice(-30000);
             const marker = '<!-- terraform-plan-comment -->';
-            const body = `${marker}\n### Terraform Plan\n\n<details><summary>Show plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n\n</details>`;
+            const body = `${marker}\n### Terraform Plan\n\n<details><summary>infra/</summary>\n\n\`\`\`\n${infraPlan}\n\`\`\`\n\n</details>\n\n<details><summary>infra/cluster-addons/ (state-only preview, not live-refreshed)</summary>\n\n\`\`\`\n${addonsPlan}\n\`\`\`\n\n</details>`;
 
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -136,9 +148,6 @@ jobs:
     runs-on: ubuntu-latest
     # Pauses for approval -- required-reviewer rule is on the repo's environment settings
     environment: infra-deploy
-    defaults:
-      run:
-        working-directory: infra
     steps:
       - uses: actions/checkout@v4
 
@@ -151,5 +160,16 @@ jobs:
         with:
           terraform_version: "1.15.8"
 
-      - run: terraform init
-      - run: terraform apply -auto-approve
+      # infra/ must exist first -- cluster-addons/ reads its outputs
+      # (cluster endpoint/CA) to configure the helm/kubectl providers.
+      - name: Apply infra/
+        working-directory: infra
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Apply infra/cluster-addons/
+        working-directory: infra/cluster-addons
+        run: |
+          terraform init
+          terraform apply -auto-approve
