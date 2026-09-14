@@ -37,10 +37,13 @@ resource "kubectl_manifest" "gpu_node_pool" {
       disruption:
         consolidationPolicy: WhenEmptyOrUnderutilized
         consolidateAfter: 1m
-      # Hard cap of 1 GPU node ever -- the real cost risk this whole
-      # project has flagged repeatedly is an idle GPU node left running.
+      # Cap of 2 GPU nodes -- enough to actually prove Karpenter can
+      # scale Ollama onto real additional GPU capacity under load (the
+      # whole point of giving it its own NodePool), while still keeping
+      # a finite ceiling against the "idle GPU node left running" risk.
+      # Ollama's own HPA maxReplicas (later) should match this number.
       limits:
-        nvidia.com/gpu: 1
+        nvidia.com/gpu: 2
   YAML
 
   depends_on = [kubectl_manifest.gpu_ec2_node_class]
