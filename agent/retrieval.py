@@ -20,6 +20,10 @@ def _embeddings():
     return OllamaEmbeddings(model=config.EMBEDDING_MODEL, base_url=config.OLLAMA_BASE_URL)
 
 
+def _remote_store():
+    return Chroma(host=config.CHROMA_HOST, port=config.CHROMA_PORT, embedding_function=_embeddings())
+
+
 def load_documents():
     paths = glob.glob(os.path.join(config.KNOWLEDGE_BASE_DIR, "*.md"))
     documents = []
@@ -42,6 +46,25 @@ def build_vector_store():
     )
     chunks = splitter.split_documents(documents)
 
+    if config.CHROMA_HOST:
+        # Clear any existing collection so reruns don't duplicate data.
+        # Errors harmlessly on a fresh Chroma with nothing to delete yet --
+        # a real connection problem surfaces immediately on the next call anyway.
+        try:
+            _remote_store().delete_collection()
+        except Exception as e:  # noqa: BLE001 -- best-effort, see comment above
+            print(f"No existing collection to clear ({e}); continuing.")
+
+        print(f"Embedding {len(chunks)} chunks from {len(documents)} documents...")
+        Chroma.from_documents(
+            chunks,
+            embedding=_embeddings(),
+            host=config.CHROMA_HOST,
+            port=config.CHROMA_PORT,
+        )
+        print(f"Vector store built at {config.CHROMA_HOST}:{config.CHROMA_PORT}")
+        return
+
     if os.path.exists(config.VECTOR_STORE_DIR):
         # Clear contents rather than removing the directory itself: when this
         # path is a Docker bind mount, rmtree-ing the mount point fails with
@@ -63,10 +86,13 @@ def build_vector_store():
 
 
 def get_retriever(k=4):
-    store = Chroma(
-        persist_directory=config.VECTOR_STORE_DIR,
-        embedding_function=_embeddings(),
-    )
+    if config.CHROMA_HOST:
+        store = _remote_store()
+    else:
+        store = Chroma(
+            persist_directory=config.VECTOR_STORE_DIR,
+            embedding_function=_embeddings(),
+        )
     return store.as_retriever(search_kwargs={"k": k})
 
 
