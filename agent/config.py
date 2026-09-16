@@ -15,6 +15,11 @@ VECTOR_STORE_DIR = os.getenv("AGENT_VECTOR_STORE_DIR", "docs/vector_store")
 CHUNK_SIZE = int(os.getenv("AGENT_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("AGENT_CHUNK_OVERLAP", "200"))
 
+# Chroma: networked (CHROMA_HOST set) in the cluster, embedded local
+# (VECTOR_STORE_DIR above) otherwise.
+CHROMA_HOST = os.getenv("AGENT_CHROMA_HOST")
+CHROMA_PORT = int(os.getenv("AGENT_CHROMA_PORT", "8000"))
+
 # File-write tool: where the agent is allowed to save output.
 # S3 bucket takes over when set (in-cluster); local dir is the
 # Compose/dev default.
