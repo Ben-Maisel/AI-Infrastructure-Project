@@ -11,6 +11,11 @@ resource "aws_ecr_repository" "app" {
   image_scanning_configuration {
     scan_on_push = true
   }
+
+  # Without this, `terraform destroy` fails once build-and-push-app has
+  # ever run: AWS refuses to delete a non-empty repository by default,
+  # and this repo will never be empty by teardown time from here on.
+  force_delete = true
 }
 
 resource "aws_ecr_lifecycle_policy" "app" {
