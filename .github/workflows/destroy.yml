@@ -75,13 +75,26 @@ jobs:
       # failing overall (e.g. on a later VPC/ENI cleanup step) --
       # without this check, the re-run fails here immediately and
       # skips the remaining, still-needed destroy steps.
-      - name: Drain and terminate Karpenter-provisioned nodes
+      - name: Scale down workloads and drain Karpenter-provisioned nodes
         run: |
           if ! aws eks describe-cluster --name ai-infra-project --region us-east-2 >/dev/null 2>&1; then
             echo "Cluster already gone -- nothing to drain."
             exit 0
           fi
           aws eks update-kubeconfig --name ai-infra-project --region us-east-2
+
+          # Scale workloads to 0 first -- proven necessary for real:
+          # deleting a NodeClaim evicts its pod, but if the Deployment
+          # (default namespace only -- never kube-system, where
+          # Karpenter's own controller and CoreDNS live and need to
+          # stay alive to process this) still exists, the ReplicaSet
+          # controller immediately recreates the pod, which a
+          # still-running Karpenter then builds a brand-new node for --
+          # orphaning a second node even after the drain below already
+          # "worked."
+          kubectl scale deployment --all --replicas=0 -n default
+          kubectl wait --for=delete pod --all -n default --timeout=2m || true
+
           kubectl delete nodeclaims --all --wait=true --timeout=5m
 
       # cluster-addons/ must go first -- the Helm release's uninstall
