@@ -47,12 +47,14 @@ jobs:
           echo "PRs into main must come from the dev branch (got '${{ github.head_ref }}')."
           exit 1
 
-  # Gates the infra jobs so ordinary app commits skip AWS entirely
-  detect-infra-changes:
+  # Gates the infra jobs so ordinary app commits skip AWS entirely, and
+  # gates the image build so infra-only commits skip Docker entirely.
+  detect-changes:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       infra: ${{ steps.filter.outputs.infra }}
+      app: ${{ steps.filter.outputs.app }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -63,10 +65,15 @@ jobs:
               - 'infra/**'
               - '!infra/trust/**'
               - '!infra/bootstrap/**'
+            app:
+              - 'agent/**'
+              - 'Dockerfile'
+              - 'requirements.txt'
+              - 'entrypoint.sh'
 
   infra-plan:
-    if: github.event_name == 'pull_request' && needs.detect-infra-changes.outputs.infra == 'true'
-    needs: detect-infra-changes
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.infra == 'true'
+    needs: detect-changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,7 +140,7 @@ jobs:
     # needs: on a job silently requires success() on all of them unless
     # the if below calls a status function itself. !cancelled() (not
     # always()) opts out of that so a workflow_dispatch run isn't
-    # skipped just because detect-infra-changes (skipped on purpose for
+    # skipped just because detect-changes (skipped on purpose for
     # that event) "didn't succeed" -- always() would also run this after
     # a user cancels the whole workflow, which we don't want for a job
     # that applies real infrastructure.
@@ -142,9 +149,9 @@ jobs:
       needs.lint-and-test.result == 'success' &&
       (
         github.event_name == 'workflow_dispatch' ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.detect-infra-changes.result == 'success' && needs.detect-infra-changes.outputs.infra == 'true')
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.infra == 'true')
       )
-    needs: [lint-and-test, detect-infra-changes]
+    needs: [lint-and-test, detect-changes]
     runs-on: ubuntu-latest
     # Pauses for approval -- required-reviewer rule is on the repo's environment settings
     environment: infra-deploy
@@ -173,3 +180,36 @@ jobs:
         run: |
           terraform init
           terraform apply -auto-approve
+
+  # No approval gate -- pushing an image has no effect until a
+  # separate, still-gated deploy actually uses it. Narrow, ECR-only
+  # role (infra/trust/github_actions_ecr_push_role.tf), not the
+  # admin-wide deploy role above.
+  build-and-push-app:
+    if: |
+      !cancelled() &&
+      needs.lint-and-test.result == 'success' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      needs.detect-changes.result == 'success' && needs.detect-changes.outputs.app == 'true'
+    needs: [lint-and-test, detect-changes]
+    runs-on: ubuntu-latest
+    env:
+      # Registry (for login) vs. repository (for build/push) are
+      # different things -- login authenticates to the whole registry,
+      # not one repo within it.
+      ECR_REGISTRY: 786830914740.dkr.ecr.us-east-2.amazonaws.com
+      ECR_REPOSITORY: 786830914740.dkr.ecr.us-east-2.amazonaws.com/ai-infra-project-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::786830914740:role/ai-infra-project-github-actions-ecr-push
+          aws-region: us-east-2
+
+      - run: aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin "${{ env.ECR_REGISTRY }}"
+
+      # Tagged with the commit SHA, never latest -- the repo's
+      # image_tag_mutability is IMMUTABLE, so a reused tag would fail.
+      - run: docker build -t "${{ env.ECR_REPOSITORY }}:${{ github.sha }}" .
+      - run: docker push "${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
