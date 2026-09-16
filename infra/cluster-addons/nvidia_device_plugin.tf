@@ -25,9 +25,15 @@ resource "helm_release" "nvidia_device_plugin" {
       # feature.node.kubernetes.io/pci-10de.present) that we never
       # install -- without this override, that affinity can never be
       # satisfied, so the DaemonSet's desired count silently stays 0
-      # forever regardless of nodeSelector matching. Clearing it
-      # entirely leaves nodeSelector as the only placement rule.
-      affinity = {}
+      # forever regardless of nodeSelector matching.
+      #
+      # Must be null, not {}: Helm deep-merges override values into the
+      # chart's own (already-populated) default, so an empty map merges
+      # nothing on top and the default survives untouched (confirmed live
+      # -- {} had zero effect). null is Helm's documented mechanism to
+      # delete a key from the merge entirely, which is what actually
+      # clears it and leaves nodeSelector as the only placement rule.
+      affinity = null
     })
   ]
 }
