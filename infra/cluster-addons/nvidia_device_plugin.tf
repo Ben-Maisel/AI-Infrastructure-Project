@@ -20,6 +20,14 @@ resource "helm_release" "nvidia_device_plugin" {
       nodeSelector = {
         workload-tier = "ollama"
       }
+      # Found live: the chart also ships a default nodeAffinity
+      # requiring Node Feature Discovery labels (e.g.
+      # feature.node.kubernetes.io/pci-10de.present) that we never
+      # install -- without this override, that affinity can never be
+      # satisfied, so the DaemonSet's desired count silently stays 0
+      # forever regardless of nodeSelector matching. Clearing it
+      # entirely leaves nodeSelector as the only placement rule.
+      affinity = {}
     })
   ]
 }
