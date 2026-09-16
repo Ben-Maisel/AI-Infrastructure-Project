@@ -57,6 +57,22 @@ jobs:
         with:
           terraform_version: "1.15.8"
 
+      - uses: azure/setup-kubectl@v4
+
+      # Karpenter-provisioned nodes were never created by Terraform (it
+      # calls the EC2 API directly), so `terraform destroy` can't clean
+      # them up -- and destroying cluster-addons/ next removes
+      # Karpenter's own controller before it could notice and do it
+      # itself. Deleting NodeClaims here, while the controller is still
+      # running, triggers Karpenter's real graceful termination (drain,
+      # evict, then terminate the instance) -- kubectl delete blocks
+      # until that finalizer work actually finishes. Skipping this
+      # orphaned a node for 20+ minutes and failed the whole workflow.
+      - name: Drain and terminate Karpenter-provisioned nodes
+        run: |
+          aws eks update-kubeconfig --name ai-infra-project --region us-east-2
+          kubectl delete nodeclaims --all --wait=true --timeout=5m
+
       # cluster-addons/ must go first -- the Helm release's uninstall
       # needs the cluster's API server to still exist to process it.
       - name: Destroy infra/cluster-addons/
