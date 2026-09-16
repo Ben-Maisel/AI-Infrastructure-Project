@@ -3,6 +3,11 @@ output "ecr_repository_url" {
   description = "docker push/pull target for the agent image"
 }
 
+output "ecr_repository_arn" {
+  value       = aws_ecr_repository.app.arn
+  description = "Read by infra/trust/ to scope the CI image-push role to this one repo"
+}
+
 output "vpc_id" {
   value = module.vpc.vpc_id
 }
