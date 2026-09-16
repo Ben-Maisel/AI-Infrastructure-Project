@@ -16,7 +16,12 @@ resource "kubectl_manifest" "gpu_ec2_node_class" {
         # Pinned to the cluster's own Kubernetes version -- an
         # unqualified wildcard can match an AMI built for a different,
         # incompatible k8s version (a real, reported Karpenter issue).
-        - name: "amazon-eks-node-1.31-nvidia-*"
+        # Real naming convention verified directly against the actual
+        # AMIs in this account/region (an earlier guess here --
+        # "amazon-eks-node-1.31-nvidia-*" -- matched zero real AMIs and
+        # silently made Karpenter exclude this NodePool from scheduling
+        # entirely, with no error, just no node ever getting built).
+        - name: "amazon-eks-node-al2023-x86_64-nvidia-*-1.31-*"
       subnetSelectorTerms:
         - tags:
             karpenter.sh/discovery: ${data.terraform_remote_state.infra.outputs.eks_cluster_name}
