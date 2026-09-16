@@ -83,6 +83,15 @@ jobs:
           fi
           aws eks update-kubeconfig --name ai-infra-project --region us-east-2
 
+          # cluster-addons/ (Karpenter itself, and the NodeClaim type
+          # it registers) may never have been applied at all -- e.g. an
+          # infra/ apply that got cancelled before reaching
+          # cluster-addons/. Nothing to drain in that case either.
+          if ! kubectl get crd nodeclaims.karpenter.sh >/dev/null 2>&1; then
+            echo "Karpenter's NodeClaim CRD doesn't exist -- nothing to drain."
+            exit 0
+          fi
+
           # Scale workloads to 0 first -- proven necessary for real:
           # deleting a NodeClaim evicts its pod, but if the Deployment
           # (default namespace only -- never kube-system, where

@@ -9,6 +9,14 @@ module "eks" {
   cluster_name    = local.cluster_name
   cluster_version = "1.31"
 
+  # Default is 30 days -- AWS never allows immediate KMS key deletion,
+  # only scheduling it. Every cluster rebuild creates a fresh key, and
+  # the old one's 30-day wait was quietly accumulating a real, if
+  # small, per-key cost tail across every past teardown (found 7
+  # simultaneously pending-deletion keys, ~$7/mo, on 2026-09-16). 7 is
+  # the minimum AWS allows.
+  kms_key_deletion_window_in_days = 7
+
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 

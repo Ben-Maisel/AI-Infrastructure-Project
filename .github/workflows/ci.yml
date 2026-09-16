@@ -57,9 +57,18 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
     steps:
       - uses: actions/checkout@v4
+      # base is ignored entirely for pull_request events (paths-filter
+      # already diffs correctly against the PR's own base branch) --
+      # this only takes effect for push, where it defaults to "the
+      # repository's default branch" rather than the actual pre-push
+      # commit, and mis-triggered infra-apply on a merge that only
+      # touched destroy.yml. github.event.before is the exact SHA main
+      # pointed to immediately before this push, straight from
+      # GitHub's own event payload.
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.event.before }}
           filters: |
             infra:
               - 'infra/**'
