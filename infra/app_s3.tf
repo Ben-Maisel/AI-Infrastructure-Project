@@ -11,6 +11,11 @@ resource "aws_s3_bucket" "app_tool_output" {
   # account -- account ID suffix makes collision practically impossible
   # without needing a random suffix.
   bucket = "${local.cluster_name}-tool-output-${data.aws_caller_identity.current.account_id}"
+
+  # Same problem ECR hit: terraform destroy refuses to delete a
+  # non-empty bucket by default. write_file will actually put objects
+  # in here once the app's used, so this isn't hypothetical.
+  force_destroy = true
 }
 
 # Agent-written files are working output, not records worth keeping
