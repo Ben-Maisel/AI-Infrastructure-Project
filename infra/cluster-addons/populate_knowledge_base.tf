@@ -9,6 +9,17 @@
 # own; delete the Job manually first (kubectl delete job
 # populate-knowledge-base) and the next apply will recreate it.
 #
+# ignore_changes is load-bearing, not cosmetic: var.app_image_tag
+# changes on every push now (build-and-push-app runs unconditionally),
+# and without this, every later apply tries to update this Job's image
+# -- which Kubernetes rejects outright since a Job's spec.template is
+# immutable after creation, failing the whole cluster-addons/ apply
+# and blocking everything depends_on this Job, forever. Confirmed live:
+# exactly this happened, and Terraform's state ended up recording the
+# rejected new tag anyway even though the actual object was untouched
+# -- the next real (non -refresh=false) apply corrects that drift by
+# refreshing from the live object before this lifecycle block applies.
+#
 # Known limitation: Ollama has no PVC (see ollama.tf), so if its pod
 # is ever rescheduled onto a new node, the fresh container starts with
 # zero models again and nothing auto-repulls them -- re-running this
@@ -66,4 +77,8 @@ resource "kubectl_manifest" "populate_knowledge_base" {
     kubectl_manifest.ollama_service,
     kubectl_manifest.chroma_service,
   ]
+
+  lifecycle {
+    ignore_changes = [yaml_body]
+  }
 }
