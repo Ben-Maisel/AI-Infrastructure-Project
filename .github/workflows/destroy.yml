@@ -104,7 +104,13 @@ jobs:
           kubectl scale deployment --all --replicas=0 -n default
           kubectl wait --for=delete pod --all -n default --timeout=2m || true
 
-          kubectl delete nodeclaims --all --wait=true --timeout=5m
+          # 5m wasn't enough for a GPU NodeClaim in practice: the
+          # underlying EC2 instance terminates fine within that window,
+          # but Karpenter's own reconciliation afterward (confirm
+          # termination, delete the Node object, remove the NodeClaim's
+          # finalizer -- which is what --wait actually blocks on) took
+          # longer than 5m for a g4dn.xlarge with its 100Gi volume.
+          kubectl delete nodeclaims --all --wait=true --timeout=10m
 
       # cluster-addons/ must go first -- the Helm release's uninstall
       # needs the cluster's API server to still exist to process it.

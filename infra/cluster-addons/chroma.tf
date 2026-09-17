@@ -1,7 +1,7 @@
 # Chroma's real Kubernetes resources: PVC, Deployment, Service.
-# agent/retrieval.py still talks to an embedded, in-process Chroma
-# instance today -- pointing it at this Service over the network is a
-# separate, still-pending code change, not part of this file.
+# agent/retrieval.py talks to this Service over the network whenever
+# AGENT_CHROMA_HOST is set (see populate_knowledge_base.tf and,
+# eventually, the app Deployment).
 
 resource "kubectl_manifest" "chroma_pvc" {
   yaml_body = <<-YAML
