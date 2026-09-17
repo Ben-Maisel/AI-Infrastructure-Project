@@ -104,8 +104,18 @@ jobs:
       # -refresh=false: the plan role has no EKS access entry, so it
       # can't read the Kubernetes-backed resources here live -- this
       # shows what's in state rather than a fully live-verified diff.
+      #
+      # app_image_tag has no default (see variables.tf) -- without a
+      # value here, terraform prompts interactively for it, which just
+      # hangs forever on a non-interactive runner (confirmed live: a
+      # plan step sat "in progress" for 2+ hours). Only used for cosmetic
+      # plan diff output here, so any value works -- github.sha on a
+      # pull_request event is actually a synthetic merge-commit SHA, not
+      # a real image tag, but that's fine since this never pulls it.
       - name: Plan infra/cluster-addons/
         working-directory: infra/cluster-addons
+        env:
+          TF_VAR_app_image_tag: ${{ github.sha }}
         run: |
           terraform init
           terraform plan -refresh=false -lock=false -no-color | tee plan_output.txt
