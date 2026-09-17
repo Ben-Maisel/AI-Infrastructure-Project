@@ -28,8 +28,14 @@ jobs:
           terraform_version: "1.15.8"
 
       # cluster-addons/ first -- shown in the order it'll actually be destroyed.
+      # app_image_tag has no default -- without a value here, terraform
+      # hangs prompting for it forever on this non-interactive runner
+      # (same bug already hit and fixed in ci.yml's infra-plan). Any
+      # value works, this is destroy-only and never pulls the image.
       - name: Preview destroy of infra/cluster-addons/
         working-directory: infra/cluster-addons
+        env:
+          TF_VAR_app_image_tag: ${{ github.sha }}
         run: |
           terraform init
           terraform plan -destroy -refresh=false -lock=false -no-color
@@ -83,6 +89,18 @@ jobs:
           fi
           aws eks update-kubeconfig --name ai-infra-project --region us-east-2
 
+          # app's Service is type: LoadBalancer -- AWS provisions a real
+          # Classic ELB outside Terraform's direct tracking, same shape
+          # of problem as Karpenter's NodeClaims below. Deleting it here
+          # explicitly, with --wait (kubectl's own default, which waits
+          # for finalizers -- confirmed via kubectl's docs), guarantees
+          # the ELB is actually gone before infra/'s VPC destroy runs,
+          # rather than trusting the kubectl_manifest provider's own
+          # delete path to do the same (untested). Independent of
+          # whether Karpenter/NodeClaims exist at all, so this runs
+          # before that check below, not nested inside it.
+          kubectl delete service app -n default --wait --timeout=5m --ignore-not-found
+
           # cluster-addons/ (Karpenter itself, and the NodeClaim type
           # it registers) may never have been applied at all -- e.g. an
           # infra/ apply that got cancelled before reaching
@@ -114,8 +132,13 @@ jobs:
 
       # cluster-addons/ must go first -- the Helm release's uninstall
       # needs the cluster's API server to still exist to process it.
+      # Same missing-variable hang risk as the preview above -- this is
+      # the real destroy, so if this one hangs the whole teardown blocks
+      # for real, not just a status comment.
       - name: Destroy infra/cluster-addons/
         working-directory: infra/cluster-addons
+        env:
+          TF_VAR_app_image_tag: ${{ github.sha }}
         run: |
           terraform init
           terraform destroy -auto-approve
