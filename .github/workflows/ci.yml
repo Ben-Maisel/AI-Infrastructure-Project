@@ -47,14 +47,17 @@ jobs:
           echo "PRs into main must come from the dev branch (got '${{ github.head_ref }}')."
           exit 1
 
-  # Gates the infra jobs so ordinary app commits skip AWS entirely, and
-  # gates the image build so infra-only commits skip Docker entirely.
+  # Gates the infra jobs so ordinary app commits skip AWS entirely.
+  # build-and-push-app used to be gated the same way on app-path
+  # changes, but cluster-addons/ resources (the population Job, and
+  # eventually the app Deployment) need an image tagged with the
+  # current commit's SHA to exist for every push to main, not just
+  # ones that touched agent/ -- so it now always runs on push instead.
   detect-changes:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       infra: ${{ steps.filter.outputs.infra }}
-      app: ${{ steps.filter.outputs.app }}
     steps:
       - uses: actions/checkout@v4
       # base is ignored entirely for pull_request events (paths-filter
@@ -74,11 +77,6 @@ jobs:
               - 'infra/**'
               - '!infra/trust/**'
               - '!infra/bootstrap/**'
-            app:
-              - 'agent/**'
-              - 'Dockerfile'
-              - 'requirements.txt'
-              - 'entrypoint.sh'
 
   infra-plan:
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.infra == 'true'
@@ -156,11 +154,12 @@ jobs:
     if: |
       !cancelled() &&
       needs.lint-and-test.result == 'success' &&
+      needs.build-and-push-app.result != 'failure' &&
       (
         github.event_name == 'workflow_dispatch' ||
         (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.infra == 'true')
       )
-    needs: [lint-and-test, detect-changes]
+    needs: [lint-and-test, detect-changes, build-and-push-app]
     runs-on: ubuntu-latest
     # Pauses for approval -- required-reviewer rule is on the repo's environment settings
     environment: infra-deploy
@@ -184,8 +183,15 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
+      # app_image_tag: build-and-push-app is now a needs: dependency
+      # above specifically so this SHA is guaranteed to already exist
+      # in ECR by the time this runs (workflow_dispatch reruns skip
+      # rebuilding -- the image for the current HEAD commit was already
+      # pushed by the push event that originally landed it on main).
       - name: Apply infra/cluster-addons/
         working-directory: infra/cluster-addons
+        env:
+          TF_VAR_app_image_tag: ${{ github.sha }}
         run: |
           terraform init
           terraform apply -auto-approve
@@ -194,13 +200,19 @@ jobs:
   # separate, still-gated deploy actually uses it. Narrow, ECR-only
   # role (infra/trust/github_actions_ecr_push_role.tf), not the
   # admin-wide deploy role above.
+  #
+  # Runs on every push to main, not just agent/-touching ones --
+  # cluster-addons/ resources need an image tagged with the current
+  # commit's SHA to exist unconditionally (immutable tags mean there's
+  # no "latest" to fall back to). Docker layer caching plus ECR
+  # already having identical layers from prior pushes make a rebuild
+  # of an unchanged app cheap.
   build-and-push-app:
     if: |
       !cancelled() &&
       needs.lint-and-test.result == 'success' &&
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      needs.detect-changes.result == 'success' && needs.detect-changes.outputs.app == 'true'
-    needs: [lint-and-test, detect-changes]
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: lint-and-test
     runs-on: ubuntu-latest
     env:
       # Registry (for login) vs. repository (for build/push) are
