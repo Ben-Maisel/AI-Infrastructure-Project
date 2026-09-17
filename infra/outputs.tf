@@ -38,3 +38,13 @@ output "karpenter_node_iam_role_name" {
 output "karpenter_interruption_queue_name" {
   value = module.karpenter.queue_name
 }
+
+output "app_tool_output_bucket" {
+  value       = aws_s3_bucket.app_tool_output.bucket
+  description = "Read by cluster-addons/ to set AGENT_TOOL_OUTPUT_S3_BUCKET on the app Deployment"
+}
+
+output "app_iam_role_arn" {
+  value       = aws_iam_role.app.arn
+  description = "Annotated onto the app ServiceAccount so it can assume this role via IRSA"
+}
